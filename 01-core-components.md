@@ -1,9 +1,25 @@
 # Core Components: ActionHandler, Gateway, and Usecase
 
-## Overview
-This document describes the core components that form the foundation of the Clean Architecture implementation. After understanding the basic terminology in `00-main-rules.md`, this document provides detailed guidance on implementing the ActionHandler pattern, Gateways, and Usecases.
+## 1. Overview
+This document describes the core components that form the foundation of the Clean Architecture implementation. After understanding the basic terminology in `00-main-rules.md`, this document provides detailed guidance on implementing the ActionHandler pattern, Gateways, and Usecases. These components work together to create a system that's maintainable, testable, and aligned with clean architecture principles!
 
-## ActionHandler Definition
+```mermaid
+graph TD
+    A[Gateway Type Definition] --> |implements| B[ActionHandler]
+    C[Usecase Type Definition] --> |implements| B
+    D[Gateway Implementation] --> A
+    E[Usecase Implementation] --> C
+    E --> |uses| D
+    
+    style B fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000
+    style A fill:#AAFFC3,stroke:#333,stroke-width:2px,color:#000
+    style C fill:#BFBFFF,stroke:#333,stroke-width:2px,color:#000
+    style D fill:#AAFFC3,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,color:#000
+    style E fill:#BFBFFF,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5,color:#000
+```
+
+## 2. ActionHandler Pattern
+The ActionHandler pattern provides a consistent type signature across all components, making the system more predictable and easier to understand.
 
 ```go
 // In core/core.go
@@ -12,33 +28,39 @@ type ActionHandler[REQUEST any, RESPONSE any] func(ctx context.Context, request 
 
 This generic typed function accepts a context and request object, and returns a pointer to a response object and an error. It serves as the foundational type for both Gateways and Usecases, enabling consistent patterns throughout the system.
 
-## Component Separation
-- **Gateway**: Handles infrastructure concerns and non-deterministic operations
-- **Usecase**: Contains pure business logic and orchestrates gateways
+The beauty of this pattern is that it:
+- Creates a uniform interface for all operations
+- Supports dependency injection
+- Enables middleware application
+- Makes testing straightforward
+- Promotes clear separation of concerns
 
-## File Structure
+## 3. Component Structure
+
+### 3.1 File Organization
 - Type definitions are kept in a single file (`usecase.go` or `gateway.go`)
 - Implementations are in separate files named by their function
 - Each implementation file contains exactly one implementation function
 
-## Naming Conventions
+### 3.2 Naming Conventions
+Consistent naming is crucial for maintaining a clear and organized codebase.
 
-### Gateway Names
+#### 3.2.1 Gateway Naming
 - Use technical/infrastructure terminology
 - Format: `<Object><Action>` 
 - Examples: `UserSave`, `UserFindOne`, `TodoCreate`, `MessagePublish`
 - Filenames: `gateway_user_save.go`, `gateway_todo_create.go`
 
-### Usecase Names
+#### 3.2.2 Usecase Naming
 - Use business process terminology
 - Format: `<Object><Action>`
 - Examples: `UserRegister`, `UserAuthenticate`, `OrderPlace`, `PaymentProcess`
 - Filenames: `usecase_user_register.go`, `usecase_order_place.go`
 
-## Implementation Template
+### 3.3 Implementation Templates
+These templates ensure consistency across all components.
 
-### Type Definition Template (for both gateway/usecase)
-
+#### 3.3.1 Type Definition Template
 ```go
 // === === === === === === === === === === === === === === === ===
 
@@ -56,8 +78,7 @@ type <Object><Action> = core.ActionHandler[<Object><Action>Req, <Object><Action>
 // === === === === === === === === === === === === === === === ===
 ```
 
-### Implementation Function Template (for both gateway/usecase)
-
+#### 3.3.2 Function Implementation Template
 ```go
 // Impl<Object><Action> implements the function with dependencies
 func Impl<Object><Action>(
@@ -75,21 +96,72 @@ func Impl<Object><Action>(
 }
 ```
 
-## GATEWAY IMPLEMENTATION
+### 3.4 Gateway-Usecase Relationship
+Usecases orchestrate multiple gateways to implement business processes. The diagram below shows how multiple usecases can share gateway implementations:
 
-### Gateway Responsibilities
+```mermaid
+graph TD
+    subgraph "Gateway Implementations"
+        G1[UserFindByEmail]
+        G2[UserCreate]
+        G3[PasswordHash]
+        G4[GenerateUUID]
+        G5[GetCurrentTime]
+        G6[EmailSend]
+    end
+    
+    subgraph "Usecase Implementations"
+        U1[UserRegister]
+        U2[PasswordReset]
+    end
+    
+    U1 --> G1
+    U1 --> G2
+    U1 --> G3
+    U1 --> G4
+    U1 --> G5
+    
+    U2 --> G1
+    U2 --> G3
+    U2 --> G4
+    U2 --> G5
+    U2 --> G6
+    
+    style G1 fill:#00CC66,stroke:#333,stroke-width:2px,color:#000
+    style G2 fill:#00CC66,stroke:#333,stroke-width:2px,color:#000
+    style G3 fill:#00CC66,stroke:#333,stroke-width:2px,color:#000
+    style G4 fill:#00CC66,stroke:#333,stroke-width:2px,color:#000
+    style G5 fill:#00CC66,stroke:#333,stroke-width:2px,color:#000
+    style G6 fill:#00CC66,stroke:#333,stroke-width:2px,color:#000
+    style U1 fill:#7575FF,stroke:#333,stroke-width:2px,color:#000
+    style U2 fill:#7575FF,stroke:#333,stroke-width:2px,color:#000
+```
+
+Notice how both usecases share common gateways like `UserFindByEmail`, `PasswordHash`, `GenerateUUID`, and `GetCurrentTime`. This promotes reuse and consistency across the application!
+
+## 4. Gateway Component
+Gateways handle all infrastructure concerns and non-deterministic operations, acting as the boundary between the clean domain logic and the messy outside world!
+
+### 4.1 Core Principles
+1. **Infrastructure Focus**: Gateways handle external systems and side-effects
+2. **Single Responsibility**: Each gateway performs one specific operation
+3. **Error Handling**: Gateways properly handle and wrap infrastructure errors
+4. **Pure Infrastructure**: No business logic belongs in gateways
+
+### 4.2 Gateway Categories
+- **Domain Gateways**: Operations on domain entities (e.g., `UserSave`, `TodoCreate`)
+- **System Utilities**: System-level operations (e.g., `SystemGenerateUUID`, `SystemGetCurrentTime`)
+
+### 4.3 Gateway Responsibilities
 1. Database operations
 2. API calls
 3. File system access
 4. Non-deterministic operations (timestamps, UUIDs, random values)
 5. Any operation with side effects
 
-### Gateway Categories
-- **Domain Gateways**: Operations on domain entities (e.g., `UserSave`, `TodoCreate`)
-- **System Utilities**: System-level operations (e.g., `SystemGenerateUUID`, `SystemGetCurrentTime`)
+### 4.4 Implementation Examples
 
-### Gateway Implementation Example
-
+#### 4.4.1 Domain Gateway Example
 ```go
 // In gateway_user_find_by_email.go
 package gateway
@@ -128,24 +200,7 @@ func ImplUserFindByEmail(db *gorm.DB) UserFindByEmail {
 }
 ```
 
-### Gateway Rules
-
-#### ✅ REQUIRED for Gateways
-- **ONE TASK PER GATEWAY**: Each gateway should do one specific operation (Single Responsibility)
-- **USE TRANSACTION MIDDLEWARE**: Always use `middleware.GetDBFromContext(ctx, db)` for DB operations
-- **WRAP ERRORS**: Always wrap errors with context using `fmt.Errorf("failed to...: %w", err)`
-- **RETURN POINTERS**: Always return a pointer to the response, never the value directly
-- **HANDLE INFRASTRUCTURE ERRORS**: Convert infrastructure errors to appropriate domain errors
-
-#### ❌ FORBIDDEN for Gateways
-- **NO BUSINESS LOGIC**: Gateways should never contain business rules or decisions
-- **NO USECASE ACCESS**: Gateways should never access usecases
-- **NO DIRECT ERROR RETURN**: Never return database/API errors directly without wrapping
-- **NO HARDCODED VALUES**: Never hardcode values that should be parameters
-- **NO GATEWAY CHAINING**: Never call other gateways from a gateway
-
-#### System Utility Gateway Example
-
+#### 4.4.2 System Utility Example
 ```go
 // In gateway_system_generate_uuid.go
 func ImplSystemGenerateUUID() SystemGenerateUUID {
@@ -158,16 +213,33 @@ func ImplSystemGenerateUUID() SystemGenerateUUID {
 }
 ```
 
-## USECASE IMPLEMENTATION
+### 4.5 Rules
 
-### Usecase Core Principles
+#### 4.5.1 Required Practices
+- **ONE TASK PER GATEWAY**: Each gateway should do one specific operation (Single Responsibility)
+- **USE TRANSACTION MIDDLEWARE**: Always use `middleware.GetDBFromContext(ctx, db)` for DB operations
+- **WRAP ERRORS**: Always wrap errors with context using `fmt.Errorf("failed to...: %w", err)`
+- **RETURN POINTERS**: Always return a pointer to the response, never the value directly
+- **HANDLE INFRASTRUCTURE ERRORS**: Convert infrastructure errors to appropriate domain errors
+
+#### 4.5.2 Prohibited Practices
+- **NO BUSINESS LOGIC**: Gateways should never contain business rules or decisions
+- **NO USECASE ACCESS**: Gateways should never access usecases
+- **NO DIRECT ERROR RETURN**: Never return database/API errors directly without wrapping
+- **NO HARDCODED VALUES**: Never hardcode values that should be parameters
+- **NO GATEWAY CHAINING**: Never call other gateways from a gateway
+
+## 5. Usecase Component
+Usecases contain the heart of your application: the business logic! They orchestrate gateways to implement business processes, but remain pure and free from infrastructure concerns.
+
+### 5.1 Core Principles
 1. **Pure Business Logic**: Usecases contain only business rules and process logic
 2. **Independent Transactions**: Each usecase represents a single business transaction
 3. **No Infrastructure Access**: Usecases never directly access databases, APIs or external systems
 4. **Gateway Orchestration**: Usecases coordinate multiple gateways to complete business processes
 5. **Input Validation**: Usecases are responsible for validating all inputs
 
-### Business Logic Flow Structure
+### 5.2 Business Logic Flow
 A typical usecase follows this flow pattern:
 1. **Input Validation**: Validate all request fields
 2. **Business Rules Check**: Ensure the request meets business rules
@@ -176,8 +248,7 @@ A typical usecase follows this flow pattern:
 5. **Infrastructure Operations**: Execute infrastructure operations via gateways
 6. **Result Composition**: Build and return response
 
-### Usecase Implementation Example
-
+### 5.3 Implementation Example
 ```go
 // In usecase_user_register.go
 func ImplUserRegister(
@@ -248,27 +319,27 @@ func ImplUserRegister(
     }
 }
 ```
+Notice how the example follows the Business Logic Flow from start to finish!
 
-Notice how the example follows the Business Logic Flow Structure from start to finish.
+### 5.4 Rules
 
-### Usecase Rules
-
-#### ✅ REQUIRED for Usecases
+#### 5.4.1 Required Practices
 - **PURE FUNCTIONS**: Implement usecases as pure functions without side effects
 - **BUSINESS TERMS**: Use business terminology, not technical terms, in naming
 - **VALIDATION**: Validate all inputs at the beginning of the usecase
 - **ERROR CONTEXT**: Wrap errors with contextual information
 - **RETURN POINTERS**: Always return a pointer to the response, never the value directly
 
-#### ❌ FORBIDDEN for Usecases
+#### 5.4.2 Prohibited Practices
 - **NO INFRASTRUCTURE ACCESS**: Never access databases or APIs directly
 - **NO NON-DETERMINISTIC FUNCTIONS**: Never implement time.Now(), uuid.New() in usecases
 - **NO ERROR IGNORING**: Never ignore errors returned from gateways
 - **NO USECASE CALLS**: Never call other usecases from within a usecase
 - **NO GLOBAL STATE**: Never use global state or singletons
 
-## Transaction Management
+## 6. Cross-Cutting Concerns
 
+### 6.1 Transaction Management
 Database transactions are critical for maintaining data consistency. For detailed implementation of transaction middleware, see `04-middleware.md`.
 
 In gateway implementations, always retrieve the transaction-aware DB connection:
@@ -286,16 +357,28 @@ func ImplSomeDbOperation(db *gorm.DB) SomeDbOperation {
 }
 ```
 
-## Integration with Other Components
+### 6.2 Error Handling
+Proper error handling ensures that errors are meaningful and traceable:
+- Always wrap errors with context using `fmt.Errorf("operation failed: %w", err)`
+- Return appropriate error types that can be handled by the caller
+- Never ignore errors from gateway calls
 
+### 6.3 Context Propagation
+Context is used for:
+- Carrying request-scoped values (like transaction objects)
+- Handling timeouts and cancellation
+- Tracking request lifecycle
+
+Always pass context from usecases to gateways to ensure proper propagation.
+
+## 7. Integration Points
 This document focuses on ActionHandler, Gateway, and Usecase implementations. For information on how these components interact with others in the system:
 
-- **Controllers**: Refer to `03-controller.md` files for how to expose usecases through different protocols
+- **Controllers**: Refer to `03-controller.md` for how to expose usecases through different protocols
 - **Middleware**: See `04-middleware.md` for implementing cross-cutting concerns
 - **Wiring**: Check `05-wiring.md` for dependency injection and component composition
 
-## Development Workflow
-
+## 8. Development Workflow
 When implementing new features using these components:
 
 1. First identify the business requirements and model them as usecases
@@ -304,17 +387,21 @@ When implementing new features using these components:
 4. Apply appropriate middleware (especially transaction middleware)
 5. Finally, expose the usecases through controllers
 
-## Common Pitfalls to Avoid
-
+### 8.1 Common Pitfalls to Avoid
 1. **Mixing Business Logic and Infrastructure**: Keep usecases focused on business rules and gateways on infrastructure
 2. **Direct Dependency Injection**: Always accept dependencies through constructor parameters
 3. **Missing Error Handling**: Always handle and wrap errors with context
 4. **Usecase Chaining**: Never call usecases from within usecases; decompose into smaller usecases instead
 5. **State Sharing**: Never use global variables or state; pass all data explicitly
 
-## STOP AND ASK When:
+## 9. When To Seek Help
+
+### 9.1 STOP AND ASK When:
 - You need to modify existing model or gateway definitions
 - You're unsure about the proper separation between usecase and gateway responsibilities
 - Requirements are ambiguous
 - You need to implement non-deterministic operations in usecases
 - You're considering calling one usecase from another
+
+### 9.2 Team Support
+Remember that the architecture is designed to make development more straightforward, not more complex. If something seems overly complicated, it might be a sign that there's a simpler approach within the architecture - reach out to your team!

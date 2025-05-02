@@ -1,6 +1,6 @@
 # Controller Implementation
 
-## Overview
+## 1. Overview
 Controllers expose usecases to the outside world through various protocols and mechanisms. They handle the translation between external requests and usecase inputs/outputs, but contain no business logic. This document covers all controller types: HTTP (read/write operations), scheduler-based, and message subscribers.
 
 ```mermaid
@@ -29,9 +29,9 @@ graph TB
     F --> G
 ```
 
-## Core Controller Principles
+## 2. Core Controller Principles
 
-### Common Requirements For All Controllers
+### 2.1 Common Requirements
 - **Usecase Focus**: One controller should call exactly ONE usecase
 - **No Business Logic**: Controllers only handle protocol-specific concerns
 - **Function-Based**: Use functions for controllers, not structs/interfaces
@@ -39,25 +39,24 @@ graph TB
 - **Error Handling**: Properly handle and report errors from usecases
 - **Naming Convention**: Follow `<UsecaseName><ControllerType>Controller` pattern
 
-### Common Prohibitions For All Controllers
+### 2.2 Common Prohibitions
 - **NO BUSINESS LOGIC**: Controllers should never contain business rules or decisions
 - **NO INFRASTRUCTURE ACCESS**: Controllers should never access databases or infrastructure directly
 - **NO USECASE CHAINING**: Never call multiple usecases from a single controller
 - **NO REQUEST DUPLICATION**: Never recreate request/response structs that mirror usecase structs
 - **NO HARDCODED VALUES**: Never hardcode values that should be parameters
 
-## Controller File Naming Convention
+## 3. File Organization
 
-### File Naming Pattern
-- All controller files must follow the `controller_<protocol>_<resource>_<action>.go` naming pattern
-- Each controller file should contain exactly one controller function
+### 3.1 Naming Conventions
+All controller files must follow the `controller_<protocol>_<resource>_<action>.go` naming pattern with each file containing exactly one controller function.
 
-### Protocol Types
+#### Protocol Types
 - `http`: For HTTP controllers
 - `scheduler`: For scheduler-based controllers
 - `mqtt`, `kafka`, etc.: For subscriber controllers
 
-### Examples
+#### Examples
 - HTTP controllers:
   - `controller_http_agent_get.go`
   - `controller_http_agent_ping.go`
@@ -74,23 +73,22 @@ graph TB
   - `controller_mqtt_device_heartbeat.go`
   - `controller_kafka_user_event.go`
 
-### Rules for File Naming
+### 3.2 Naming Rules
 - Use singular form for resource names when operating on a single resource
 - Use plural form for resource names when operating on multiple resources
 - Use lowercase for all parts of the filename
 - Use underscore (`_`) as separator between words
 - The action verb should always be at the end of the filename
 
-### FORBIDDEN
+### 3.3 Naming Prohibitions
 - Do not use camelCase or PascalCase in filenames
 - Do not abbreviate resource names or actions
 - Do not use non-standard file extensions
 
-## HTTP Controllers
-
+## 4. HTTP Controllers
 HTTP Controllers expose usecases through HTTP endpoints using methods like GET, POST, PUT, DELETE.
 
-### HTTP Controller Selection Logic
+### 4.1 Selection Logic
 - Default controller type is HTTP API if no other type is mentioned
 - For HTTP controllers, use appropriate HTTP methods based on the operation:
   - GET: For read operations (Find, Get, List, Search, Query, Retrieve)
@@ -99,13 +97,13 @@ HTTP Controllers expose usecases through HTTP endpoints using methods like GET, 
   - DELETE: For deletion operations (Delete, Remove)
 - Default to POST method for ambiguous usecase names
 
-### HTTP Controller Documentation
+### 4.2 Documentation Requirements
 - ALWAYS use `apiPrinter.Add()` to register endpoints for documentation
 - Include descriptive summary and tag for each endpoint
 - Document query parameters with name, type, and description
 - Provide example responses for both success and error cases
 
-### HTTP-Specific Requirements
+### 4.3 HTTP-Specific Requirements
 - Use `utils.HandleUsecase` for request parsing, validation, and error handling
 - Return `utils.APIData` for automatic documentation
 - Handle path parameters via `r.PathValue("paramName")`
@@ -119,7 +117,9 @@ HTTP Controllers expose usecases through HTTP endpoints using methods like GET, 
   - 500: Server error
 - Use JSONTag from usecase request for body parsing on write operations
 
-### HTTP READ Example (GET)
+### 4.4 Implementation Examples
+
+#### HTTP READ Example (GET)
 
 ```go
 func GetUserController(Mux *http.ServeMux, u usecase.GetUser) utils.APIData {
@@ -182,7 +182,7 @@ func GetUserController(Mux *http.ServeMux, u usecase.GetUser) utils.APIData {
 }
 ```
 
-### HTTP WRITE Example (POST)
+#### HTTP WRITE Example (POST)
 
 ```go
 func CreateUserController(Mux *http.ServeMux, u usecase.CreateUser) utils.APIData {
@@ -242,11 +242,10 @@ func CreateUserController(Mux *http.ServeMux, u usecase.CreateUser) utils.APIDat
 }
 ```
 
-## Scheduler Controllers
-
+## 5. Scheduler Controllers
 Scheduler Controllers execute usecases on a time-based schedule, using cron expressions or intervals.
 
-### Scheduler-Specific Requirements
+### 5.1 Requirements
 - Create well-defined schedules (cron expressions or interval-based)
 - Give each scheduled job a unique, descriptive identifier
 - Implement proper error logging for scheduled job failures
@@ -254,12 +253,12 @@ Scheduler Controllers execute usecases on a time-based schedule, using cron expr
 - Consider job execution metrics (success, failure, duration)
 - Follow naming convention: `<UsecaseName>SchedulerController`
 
-### Scheduler-Specific Prohibitions
+### 5.2 Prohibitions
 - NEVER schedule jobs that could overlap with previous executions (unless explicitly designed for it)
 - NEVER implement overly long-running job functions (use timeouts)
 - NEVER hardcode schedule intervals or cron expressions (use configuration)
 
-### Scheduler Implementation Considerations
+### 5.3 Implementation Considerations
 - Cron expressions should be readable and well-documented
 - Consider schedule distribution to avoid resource contention
 - Be mindful of timezone issues in scheduling
@@ -267,7 +266,9 @@ Scheduler Controllers execute usecases on a time-based schedule, using cron expr
 - Consider the implications of job execution delays
 - Scheduled jobs should be idempotent when possible
 
-### CRON-BASED Scheduler Example
+### 5.4 Implementation Examples
+
+#### CRON-BASED Scheduler Example
 
 ```go
 func DailySummaryReportSchedulerController(scheduler *cronScheduler.Scheduler, u usecase.GenerateDailySummary) {
@@ -318,7 +319,7 @@ func DailySummaryReportSchedulerController(scheduler *cronScheduler.Scheduler, u
 }
 ```
 
-### INTERVAL-BASED Scheduler Example
+#### INTERVAL-BASED Scheduler Example
 
 ```go
 func HealthCheckSchedulerController(ticker *time.Ticker, u usecase.PerformSystemHealthCheck) {
@@ -358,11 +359,10 @@ func HealthCheckSchedulerController(ticker *time.Ticker, u usecase.PerformSystem
 }
 ```
 
-## Subscriber Controllers
-
+## 6. Subscriber Controllers
 Subscriber Controllers listen for messages on message brokers (MQTT, RabbitMQ, Kafka) and invoke usecases in response.
 
-### Subscriber-Specific Requirements
+### 6.1 Requirements
 - Extract data from topics and payloads
 - Properly handle message acknowledgment
 - Apply appropriate QoS levels
@@ -370,11 +370,11 @@ Subscriber Controllers listen for messages on message brokers (MQTT, RabbitMQ, K
 - Log all critical errors (to avoid silent failures)
 - Follow naming convention: `<UsecaseName>SubscriberController`
 
-### Subscriber-Specific Prohibitions
+### 6.2 Prohibitions
 - NEVER block message processing loops with synchronous operations
 - NEVER panic on message processing errors (always recover)
 
-### Subscriber Implementation Considerations
+### 6.3 Implementation Considerations
 - Topic patterns may include wildcards that require parsing
 - Consider message retention and delivery guarantees
 - Error handling should be robust - failures shouldn't crash subscribers
@@ -384,7 +384,9 @@ Subscriber Controllers listen for messages on message brokers (MQTT, RabbitMQ, K
 - Pay attention to concurrency and throughput considerations
 - Keep subscriber controllers stateless when possible
 
-### MQTT Subscriber Example
+### 6.4 Implementation Examples
+
+#### MQTT Subscriber Example
 
 ```go
 func DeviceHeartbeatSubscriberController(client mqtt.Client, u usecase.ProcessDeviceHeartbeat) {
@@ -433,7 +435,7 @@ func DeviceHeartbeatSubscriberController(client mqtt.Client, u usecase.ProcessDe
 }
 ```
 
-### KAFKA Subscriber Example
+#### KAFKA Subscriber Example
 
 ```go
 func UserEventSubscriberController(consumer *kafka.Consumer, u usecase.ProcessUserEvent) {
@@ -488,7 +490,7 @@ func UserEventSubscriberController(consumer *kafka.Consumer, u usecase.ProcessUs
 }
 ```
 
-## Integration with Wiring
+## 7. Integration with Wiring
 
 Controllers are registered in the application wiring:
 
@@ -512,3 +514,37 @@ func SetupWiring(mux *http.ServeMux, db *gorm.DB, apiPrinter *utils.ApiPrinter,
     // Register subscriber controllers
     controller.DeviceHeartbeatSubscriberController(mqttClient, processDeviceHeartbeatUsecase)
 }
+```
+
+## 8. Common Pitfalls to Avoid
+
+### 8.1 HTTP Controller Pitfalls
+- Mixing validation logic with controller logic
+- Performing extensive data transformations in controllers
+- Hardcoding URLs or parameters that should be configurable
+- Not using the apiPrinter for documentation
+- Handling errors inconsistently across controllers
+
+### 8.2 Scheduler Controller Pitfalls
+- Not considering timezone issues
+- Creating long-running jobs without proper timeouts
+- Scheduling jobs too frequently causing system strain
+- Not logging sufficient job execution details
+- Ignoring failure handling
+
+### 8.3 Subscriber Controller Pitfalls
+- Not handling message parsing errors
+- Blocking the message processing loop
+- Ignoring message order when relevant
+- Not implementing dead-letter queues
+- Missing error handling strategies
+
+## 9. When to Seek Help
+
+### STOP AND ASK When:
+- You're unsure which controller type to use for a specific usecase
+- You need to implement complex authentication/authorization logic
+- You're designing APIs that don't clearly map to a single usecase
+- You need to handle file uploads or streaming responses
+- You're working with unique protocols not covered in these examples
+- You need to implement cross-controller functionality
